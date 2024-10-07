@@ -1,67 +1,72 @@
 from queue import PriorityQueue
 
-class Graph():
+class NamedGraph():
     #Spawn del grafo
-    def __init__(self, n: int, directed = False) -> None:
-        self.n = n
+    def __init__(self, base_key, directed = False) -> None:
+        self.n = 1
         self.directed = directed
-        self.adj_list: list[list[tuple]] = [[] for _ in range(n)]
+        self.adj_list: dict = {base_key: []}
         
-    def add_edge(self, v1: int, v2: int, weight: int = 1) -> bool:
-        if 0 <= v1 <= self.n-1 and 0 <= v2 <= self.n-1:
-            #Caso de bucle para que no se repita la arista
-            if v1 == v2:
-                self.adj_list[v1].append((v2, weight))
-                self.adj_list[v1].sort()
-                return True
-            self.adj_list[v1].append((v2, weight))
-            self.adj_list[v1].sort()
-            if not self.directed:
-                self.adj_list[v2].append((v1, weight))
-                self.adj_list[v2].sort()
+    def add_vertex(self, key) -> bool:
+        if not key in self.adj_list.keys():
+            self.adj_list[key] = []
+            self.n += 1
             return True
+        return False
+        
+    def add_edge(self, v1, v2, weight = 1) -> bool:
+        if (v1 in self.adj_list.keys() and v2 in self.adj_list.keys()):
+            if not v2 in self.adj_list[v1]:
+                self.adj_list[v1].append((v2, weight))
+                if not self.directed:
+                    self.adj_list[v2].append((v1, weight))
+                return True
         return False
     
     #Propiedades del grafo
-    def degree(self, vertex: int) -> tuple:
+    def degree(self, vertex) -> tuple:
         exit_deg = len(self.adj_list[vertex])
-        entry_deg = 0
         if self.directed:
-            for adj in self.adj_list:
-                for edge in adj:
-                    if vertex == edge[0]:
-                        entry_deg += 1
-        else:
-            entry_deg = exit_deg
-        return exit_deg, entry_deg
-    
-    def deg_sequence(self) -> list: 
-        out = [self.degree(em) for em in range(self.n)]
-        out.sort(reverse=True)
-        return out
+            for key in self.adj_list.keys():
+                if (vertex in self.adj_list[key][0]):
+                    entry_deg += 1
+            return exit_deg, entry_deg
+        return exit_deg, None
     
     def max_degree(self) -> tuple:
-        seq = self.deg_sequence()
-        return max([seq[i][0] for i in range(self.n)]), max([seq[i][1] for i in range(self.n)])
+        if self.directed:
+            return max(self.deg_sequence()[0]), max(self.deg_sequence()[1]) 
+        else:
+            return max(self.deg_sequence()[0]), None
     
     def min_degree(self) -> tuple:
-        seq = self.deg_sequence()
-        return min([seq[i][0] for i in range(self.n)]), min([seq[i][1] for i in range(self.n)])
+        if self.directed:
+            return min(self.deg_sequence()[0]), min(self.deg_sequence()[1])    
+        else:
+            return min(self.deg_sequence()[0]), None
     
-    def __num_of_components(self, vertex: int, visited: list = None) -> list:
+    def deg_sequence(self) -> tuple: 
+        exit_seq, entry_seq = [], []
+        for key in self.adj_list.keys():
+            exit_seq.append(self.degree(key)[0])
+            if(self.directed):
+                entry_seq.append(self.degree(key)[1])
+        return exit_seq, entry_seq
+    
+    def r_num_of_components(self, vertex, visited = None) -> list:
         #Incializar visited del dfs
         if visited is None:
-            visited = [False] * self.n
+            visited = [False]*self.n
         #Ejecutar recorrido dfs
         visited[vertex] = True
         for em in self.adj_list[vertex]:
-            if not visited[em[0]]:
-                visited = self.__num_of_components(em[0], visited)
+            if not visited[em]:
+                visited = self.r_num_of_components(em, visited)
         return visited
     
     def num_of_components(self) -> int:
         components = 1
-        visited = self.__num_of_components(0)
+        visited = self.r_num_of_components(0)
         #Si no todos los vertices han sido visitados, hay más de un componente
         while not all(visited):
             #Buscar el primer nodo no visitado
@@ -69,7 +74,7 @@ class Graph():
             while visited[i]:
                 i += 1
             #DFS desde el primer no visitado
-            new_visited = self.__num_of_components(i)
+            new_visited = self.r_num_of_components(i)
             #Actualizar visited y aumentar el numero de componentes
             for index in range(self.n):
                 if (not visited[index]) and new_visited[index]:
@@ -81,24 +86,10 @@ class Graph():
         return True if self.num_of_components() == 1 else False
     
     def is_eulerian(self) -> bool:
-        for vertex in range(self.n):
-            if not(self.degree(vertex)[0] % 2 == 0):
-                return False
-        if (self.is_connected()):
-            return True
-        return False
-            
+        pass
+    
     def is_semieulerian(self) -> bool:
-        even_degrees = 0
-        odd_degrees = 0
-        for vertex in range(self.n):
-            if (self.degree(vertex)[0] % 2 == 0):
-                even_degrees += 1
-            else:
-                odd_degrees += 1
-                if odd_degrees > 2:
-                    return False 
-        return True if (self.is_connected() and odd_degrees == 2) else False
+        pass
     
     def is_r_regular(self, r: int) -> bool:
         state = False
@@ -110,66 +101,62 @@ class Graph():
         return state
     
     def is_complete(self) -> bool:
-        return self.is_r_regular(self.n - 1)
+        return True if self.is_r_regular(self.n - 1) else False
     
     def has_loops(self) -> bool:
         for i in range(self.n):
-            if (i in self.adj_list[i][0]):
+            if (i in self.adj_list[i]):
                 return False
             else:
                 state = True
         return state
     
     def has_cycles(self) -> bool:
-        pass
+        for v1 in range(self.n):
+            for v2 in range(self.n):
+                p1_2: list = self.path(v1, v2)
+                p2_1: list = self.path(v2, v1)
+                inverse_p2_1 = p2_1
+                inverse_p2_1.reverse()
+                #Si existen 2 caminos distintos entre v1 y v2
+                if (len(p1_2) > 0 and len(p2_1) > 0) and p1_2 != inverse_p2_1:
+                    return True
+        return False
     
     #Recorridos
-    def bfs(self, vertex: int) -> None:
+    def bfs(self, vertex) -> None:
+        queue = []
         visited = [False] * self.n
-        queue = [vertex]
+        queue.append(vertex)
         visited[vertex] = True
         while len(queue) > 0:
             pointer = queue.pop(0)
             print(pointer, end = " ")
             for em in self.adj_list[pointer]:
-                if not visited[em[0]]:
-                    queue.append(em[0])
-                    visited[em[0]] = True
+                if not visited[em]:
+                    queue.append(em)
+                    visited[em] = True
         print()
         
-    def __dfs (self, vertex: int, visited: list = None) -> list:
+    def dfs(self, vertex) -> None:
         if visited == None:
-            visited = [False] * self.n
+            visited = [False]*self.n
             
         visited[vertex] = True
         print(vertex , end = " ")
         for em in self.adj_list[vertex]:
-            if not visited[em[0]]:
-                visited = self.__dfs(em[0], visited)
-        return visited
-            
-    def dfs(self, vertex: int) -> None:
-        self.__dfs(vertex)
+            if not visited[em]:
+                visited = self.dfs(em, visited)
         print()
+        return visited
     
     #Caminos minimos
-    def dijkstra (self, start_vertex: int) -> tuple:
-        #Inicializar matrices
-        C = [[0] * self.n] * self.n
-        for index, adjs in enumerate(self.adj_list):
-            for em in adjs:
-                C[index][em[0]] = em[1]
-                if not self.directed:
-                    C[em[0]][index] = em[1]
-        print(C)
-        '''
+    def dijkstra (self, v_ini):
         D = [float("inf")] * self.n
         pad = [None] * self.n
         visit = [False] * self.n
-        D[start_vertex] = 0
-        
+        D[v_ini] = 0
         while (not all(visit)):
-            #Encontrar el primer vertice no visitado
             for i in range (self.n):
                 if not visit[i]:
                     min_not_visited = i
@@ -186,7 +173,6 @@ class Graph():
                     D[i] = D[v] + self.C[v][i]
                     pad[i] = v
         return D, pad
-        '''
         
     def floyd_warshall(self):
         #Crear matriz de distancia D
@@ -259,59 +245,36 @@ class Graph():
         '''
     
     #Flujo máximo
-    def ford_fulkerson(self, first_vertex: int, last_vertex: int):
-        '''
-        Inicializa los flujos
-        Mientras haya caminos de aumento
-            Calcular un camino de aumento
-            Calcular el cuello de botella
-            Para cada vertice en el camino de aumento
-                Actualizar su flujo
-        Retornar flujo para cada verice en el grafo
-        '''
+    def ford_fulkerson(self):
         pass
     
+    
 if __name__ == '__main__':
+    print(chr(0 + 65))
+
     #spawn
-    test = Graph(4)
-    test.add_edge(0, 1)
-    test.add_edge(0, 2)
-    test.add_edge(0, 3)
-    test.add_edge(3, 1)
+    test = NamedGraph(base_key="Guatemala")
+    test.add_vertex("Guatepeor")
+    test.add_vertex("Mexico")
+    test.add_vertex("El salvador")
+    test.add_vertex("Polombia")
+    test.add_edge("Guatemala", "Guatepeor")
+    test.add_edge("Guatemala", "Polombia")
+    test.add_edge("Guatemala", "El salvador")
+    test.add_edge("El salvador", "Mexico")
     
     print("=====Lista de adyacencia=====")
     print(test.adj_list)
-    #recorridos
-    print("=====Recorridos=====")
-    print("DFS(0):")
-    test.dfs(0)
-    print("BFS(0):")
-    test.bfs(0)
+    print()
     #propiedades
     print("=====Propiedades=====")
-    print("Degree sequence (exit, entry):")
-    print(test.deg_sequence())
-    print("max Degree (exit, entry):")
-    print(test.max_degree())
-    print("min Degree (exit, entry):")
-    print(test.min_degree())
-    print("Numero de componentes:")
+    print("Degree sequence")
+    print(tuple(test.deg_sequence()))
+    print("max Degree")
+    print(tuple(test.max_degree()))
+    print("min Degree")
+    print(tuple(test.min_degree()))
+    print("Numero de componentes")
     print(test.num_of_components())
-    print("Es conexo:")
-    print(test.is_connected())
-    print("Es euleriano:")
-    print(test.is_eulerian())
-    print("Es semi-euleriano:")
-    print(test.is_semieulerian())
-    print("Es r-regular(2):")
-    print(test.is_r_regular(2))
-    print("Es completo:")
-    print(test.is_complete())
-    print("Tiene bucles:")
-    print(test.has_loops())
-    print("=====Caminos mínimos=====")
-    print("Dijkstra")
-    test.dijkstra(0)
-    
     
     
