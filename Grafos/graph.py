@@ -4,21 +4,23 @@ class Graph():
     #Spawn del grafo
     def __init__(self, n: int, directed = False) -> None:
         self.n = n
+        self.E = 0
         self.directed = directed
         self.adj_list: list[list[tuple]] = [[] for _ in range(n)]
         
     def add_edge(self, v1: int, v2: int, weight: int = 1) -> bool:
         if 0 <= v1 <= self.n-1 and 0 <= v2 <= self.n-1:
-            #Caso de bucle para que no se repita la arista
-            if v1 == v2:
-                self.adj_list[v1].append((v2, weight))
-                self.adj_list[v1].sort()
-                return True
             self.adj_list[v1].append((v2, weight))
             self.adj_list[v1].sort()
-            if not self.directed:
+            self.E += 1
+            #Caso de bucle para que no se repita la arista
+            if v1 == v2:
+                return True
+            #Caso base
+            elif not self.directed:
                 self.adj_list[v2].append((v1, weight))
                 self.adj_list[v2].sort()
+            self.E += 1
             return True
         return False
     
